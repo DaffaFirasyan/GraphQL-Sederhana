@@ -57,8 +57,65 @@ const ADD_BOOK = gql`
   }
 `;
 
+const DELETE_AUTHOR = gql`
+  mutation DeleteAuthor($id: ID!) {
+    deleteAuthor(id: $id) {
+      id # We need to request at least one field. ID is good for cache updates.
+    }
+  }
+`;
+
+const DELETE_BOOK = gql`
+  mutation DeleteBook($id: ID!) {
+    deleteBook(id: $id) {
+      id # We need to request at least one field.
+    }
+  }
+`;
+
 function AuthorsList() {
   const { loading, error, data, refetch } = useQuery(GET_AUTHORS_WITH_BOOKS);
+  const [deleteAuthorMutation] = useMutation(DELETE_AUTHOR, {
+    refetchQueries: [
+      { query: GET_AUTHORS_WITH_BOOKS },
+      'GetAuthorsWithBooks' // String name of the query
+    ],
+    onError: (err) => {
+      console.error("Error deleting author:", err);
+      alert(`Failed to delete author: ${err.message}`);
+    }
+  });
+
+  const [deleteBookMutation] = useMutation(DELETE_BOOK, {
+    refetchQueries: [
+      { query: GET_AUTHORS_WITH_BOOKS },
+      'GetAuthorsWithBooks'
+    ],
+    onError: (err) => {
+      console.error("Error deleting book:", err);
+      alert(`Failed to delete book: ${err.message}`);
+    }
+  });
+
+  const handleDeleteAuthor = async (authorId, authorName) => {
+    if (window.confirm(`Are you sure you want to delete author "${authorName}" and all their books?`)) {
+      try {
+        await deleteAuthorMutation({ variables: { id: authorId } });
+      } catch (e) {
+        // Error handling is now primarily in useMutation's onError
+      }
+    }
+  };
+
+  const handleDeleteBook = async (bookId, bookTitle) => {
+    if (window.confirm(`Are you sure you want to delete book "${bookTitle}"?`)) {
+      try {
+        await deleteBookMutation({ variables: { id: bookId } });
+      } catch (e) {
+        // Error handling is now primarily in useMutation's onError
+      }
+    }
+  };
 
   if (loading) return <p>Loading authors...</p>;
   if (error) return <p>Error loading authors: {error.message}</p>;
@@ -69,12 +126,28 @@ function AuthorsList() {
       {data && data.getAuthors && data.getAuthors.length > 0 ? (
         data.getAuthors.map(author => (
           <div key={author.id} className="author-card">
-            <h3>{author.name} (ID: {author.id})</h3>
+            <div className="author-header">
+              <h3>{author.name} (ID: {author.id})</h3>
+              <button 
+                onClick={() => handleDeleteAuthor(author.id, author.name)} 
+                className="delete-button"
+                title={`Delete author ${author.name}`}
+              >
+                Delete Author
+              </button>
+            </div>
             {author.books && author.books.length > 0 ? (
               <ul>
                 {author.books.map(book => (
                   <li key={book.id}>
-                    {book.title} ({book.publishedYear || 'N/A'}) - Book ID: {book.id}
+                    <span>{book.title} ({book.publishedYear || 'N/A'}) - Book ID: {book.id}</span>
+                    <button 
+                      onClick={() => handleDeleteBook(book.id, book.title)} 
+                      className="delete-button-small"
+                      title={`Delete book ${book.title}`}
+                    >
+                      Delete Book
+                    </button>
                   </li>
                 ))}
               </ul>
